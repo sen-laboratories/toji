@@ -30,6 +30,7 @@ settings_back() { rm -f "$SETTINGS"; [ -f "$SETTINGS.keep" ] && mv "$SETTINGS.ke
 
 # start_app file [page]: the app on a document, in the frame, ready after the page count is known
 start_app() {
+	[ -f "$1" ] || { echo "no such document: $1" >&2; echo "no such document: $1" >> "$OUT/errors.txt"; settings_back; finish; exit 1; }
 	$APP "$@" >"$OUT/app.log" 2>&1 &
 	wait_pages 60 >/dev/null
 	hey Toji set Frame of Window 0 to "$FRAME" >/dev/null 2>&1

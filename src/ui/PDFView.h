@@ -152,9 +152,11 @@ private:
 	bool            mFitWidthPending;   // the pages are to be as wide as the window when it is known
 	int             mTargetPage;
 	fz_rect         mTargetRegion;
+	std::vector<fz_quad> mTargetQuads;	// or the words of a quote (a highlight that is not an annotation)
 	BMessageRunner* mTargetRunner;
 	void            DrawTargetRegion();
 	void            ClearTargetRegion();
+	void            FlashTarget();
 
 	// A book is laid out again for another text size in a thread of its own, which can take a while. The window
 	// stays as it is, and tells that it is busy if it takes longer than a moment.
@@ -538,9 +540,9 @@ public:
 	// others get their handles. Runs in the thread of the window.
 	void ShowAnnotation(int page, int index);
 	// finds a quoted passage, selects it and shows it (see PDFSearch.cpp)
-	bool ShowQuote(const char* quote, int page, bool annotate);
+	bool ShowQuote(const char* quote, int page, bool mark);
 	// a deep link: where the selectors of an oa:hasTarget lead (a page, a text, a region of a page)
-	bool ShowTarget(const BMessage& target, bool annotate);
+	bool ShowTarget(const BMessage& target, bool mark);
 	// puts the annotation as a Web Annotation (JSON-LD) on the clipboard
 	void CopyWebAnnotation(int page, int index);
 	void SetFilledSelection(bool filled);

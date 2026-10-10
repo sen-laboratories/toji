@@ -851,6 +851,20 @@ PDFView::DrawBackground(BRect updateRect)
 void
 PDFView::DrawTargetRegion()
 {
+	if (!mTargetQuads.empty()) {
+		// the words of a quote: marked like with a highlighter, but only for a moment
+		SetDrawingMode(B_OP_ALPHA);
+		SetHighColor(255, 235, 59, 130);
+		for (size_t i = 0; i < mTargetQuads.size(); i++) {
+			const fz_quad& q = mTargetQuads[i];
+			BPoint polygon[4] = { mPage->PageToDev(q.ul), mPage->PageToDev(q.ur), mPage->PageToDev(q.lr), mPage->PageToDev(q.ll) };
+			for (int j = 0; j < 4; j++)
+				polygon[j] += BPoint(mLeft, mTop);
+			FillPolygon(polygon, 4);
+		}
+		SetDrawingMode(B_OP_COPY);
+		return;
+	}
 	BPoint a = mPage->PageToDev(fz_make_point(mTargetRegion.x0, mTargetRegion.y0));
 	BPoint b = mPage->PageToDev(fz_make_point(mTargetRegion.x1, mTargetRegion.y1));
 	BRect rect(fminf(a.x, b.x) + mLeft, fminf(a.y, b.y) + mTop, fmaxf(a.x, b.x) + mLeft, fmaxf(a.y, b.y) + mTop);
@@ -872,10 +886,22 @@ PDFView::ClearTargetRegion()
 {
 	delete mTargetRunner;
 	mTargetRunner = NULL;
+	mTargetQuads.clear();
 	if (mTargetPage != 0) {
 		mTargetPage = 0;
 		Invalidate();
 	}
+}
+
+
+// the mark of a target stays for 3 seconds
+void
+PDFView::FlashTarget()
+{
+	delete mTargetRunner;
+	BMessage done(TARGET_DONE_MSG);
+	mTargetRunner = new BMessageRunner(BMessenger(this), &done, 3000000, 1);
+	Invalidate();
 }
 
 
@@ -4873,7 +4899,7 @@ PDFView::ShowAnnotation(int page, int index)
 
 
 bool
-PDFView::ShowTarget(const BMessage& target, bool annotate)
+PDFView::ShowTarget(const BMessage& target, bool mark)
 {
 	if (mDoc == NULL)
 		return false;
@@ -4883,7 +4909,7 @@ PDFView::ShowTarget(const BMessage& target, bool annotate)
 		return false;
 
 	// the words are looked for from the page that was named (also if they are not on it)
-	if (!where.quote.IsEmpty() && ShowQuote(where.quote.String(), where.page, annotate))
+	if (!where.quote.IsEmpty() && ShowQuote(where.quote.String(), where.page, mark))
 		return true;
 	if (where.page < 1)
 		return false;
@@ -4895,9 +4921,7 @@ PDFView::ShowTarget(const BMessage& target, bool annotate)
 		ClearTargetRegion();
 		mTargetPage = where.page;
 		mTargetRegion = where.region;
-		BMessage done(TARGET_DONE_MSG);
-		mTargetRunner = new BMessageRunner(BMessenger(this), &done, 3000000, 1);
-		Invalidate();
+		FlashTarget();
 		BPoint corner = mPage->PageToDev(fz_make_point(where.region.x0, where.region.y0));
 		BRect shown(corner.x + mLeft, corner.y + mTop, corner.x + mLeft + 10, corner.y + mTop + 10), bounds(Bounds());
 		if (!bounds.Contains(shown))

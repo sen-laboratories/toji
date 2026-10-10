@@ -42,3 +42,6 @@ It uses the fragment identifiers that exist for this, so the places mean the sam
   place in the text).
 - **From a program:** the scripting property `Link` of the document, and `Goto` with a `uri` (see [scripting.md](scripting.md));
   in code, `lib/DeepLink.h` (MIT) makes and reads the links.
+- **As a message:** a `B_REFS_RECEIVED` message with the file in `refs` and an `oa:hasTarget` (a message with `oa:hasSelector` entries as above)
+  goes to the place. With `oa:motivatedBy` (for example `oa:highlighting`) the words of a quote, or the region of a place, are marked for three
+  seconds as a hint to the reader: it is no annotation, the document is not changed, and nothing asks to be saved at quit.

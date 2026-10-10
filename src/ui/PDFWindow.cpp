@@ -2316,6 +2316,11 @@ PDFWindow::MessageReceived(BMessage* message)
 				if (TestInt(message, "annotate", 0) != 0)
 					show.AddString("oa:motivatedBy", WebAnnotation::kHighlighting);
 				MessageReceived(&show);
+				FILE* out = fopen("/tmp/ts_test.out", "a");
+				if (out != NULL) {
+					fprintf(out, "target: unsaved changes %d\n", (int)mMainView->GetDocument()->HasUnsavedChanges());
+					fclose(out);
+				}
 			} else if (cmd == "webannot") {
 				// an annotation of the page as JSON-LD, in the test output
 				BMessage annotation;

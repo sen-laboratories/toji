@@ -87,7 +87,8 @@ static const char * licenseCopyright =
 // and says where to go in it with
 //   oa:hasTarget    a message with oa:hasSelector entries: an oa:FragmentSelector (page=5, an EPUB CFI), an
 //                   oa:TextQuoteSelector (the words), which may be refined by another selector (oa:refinedBy);
-//   oa:motivatedBy  (a string, with oa:hasTarget) the passage that the words name is also marked, not saved;
+//   oa:motivatedBy  (a string, with oa:hasTarget) the passage that the words name is marked for a moment (a highlight
+//                   that is no annotation: the document stays as it is);
 //   oa:Annotation   the identifier of an annotation (an IRI: urn:sen:<tsid>): the document goes to it and selects it.
 static const char *TARGET_MSG_KEY = "oa:hasTarget";
 static const char *MOTIVATION_MSG_KEY = "oa:motivatedBy";

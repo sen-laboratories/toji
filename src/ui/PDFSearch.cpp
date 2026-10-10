@@ -40,6 +40,7 @@
 // where a found text starts and ends in page space, taken from the first and last area of the hit
 struct FindHit {
 	fz_point start, end;
+	std::vector<fz_quad> quads;		// all areas of the hit
 };
 
 static int
@@ -54,6 +55,7 @@ CollectHit(fz_context*, void* data, int numQuads, fz_quad* quads, int, int)
 	FindHit hit;
 	hit.start = fz_make_point(first.ul.x + 0.5f, (first.ul.y + first.ll.y) / 2);
 	hit.end = fz_make_point(last.ur.x - 0.5f, (last.ur.y + last.lr.y) / 2);
+	hit.quads.assign(quads, quads + numQuads);
 	hits->push_back(hit);
 	return 0;
 }
@@ -199,9 +201,10 @@ FindThread::Run() {
 
 ///////////////////////////////////////////////////////////
 // Shows a passage that was quoted by another application: looks for the text from the page on (the given page
-// is where it should be, it is not trusted), selects it and makes it visible. With annotate the passage is also
-// marked with a highlight annotation, which is not saved. Runs in the thread of the window.
-bool PDFView::ShowQuote(const char* quote, int page, bool annotate) {
+// is where it should be, it is not trusted) and makes it visible: selected, or with mark (the caller asked for a
+// highlight) marked with a highlighter for 3 seconds, like the region of a target. No annotation is made, the
+// document stays as it is. Runs in the thread of the window.
+bool PDFView::ShowQuote(const char* quote, int page, bool mark) {
 	if (quote == NULL || quote[0] == '\0' || mDoc == NULL)
 		return false;
 
@@ -228,9 +231,25 @@ bool PDFView::ShowQuote(const char* quote, int page, bool annotate) {
 		WaitForPage();
 	}
 	ClearFindHighlights();
-	SelectFound(hit.start, hit.end);
-	if (annotate)
-		AnnotateSelection(kMarkupHighlight, 0xffeb3b);
+	if (!mark) {
+		SelectFound(hit.start, hit.end);
+		return true;
+	}
+
+	ClearTargetRegion();
+	mTargetPage = foundPage;
+	mTargetRegion = fz_empty_rect;
+	mTargetQuads = hit.quads;
+	FlashTarget();
+	// and into view
+	BRect all;
+	for (size_t i = 0; i < hit.quads.size(); i++) {
+		BPoint a = mPage->PageToDev(hit.quads[i].ul), b = mPage->PageToDev(hit.quads[i].lr);
+		all = all | BRect(fminf(a.x, b.x), fminf(a.y, b.y), fmaxf(a.x, b.x), fmaxf(a.y, b.y));
+	}
+	BRect shown = all.OffsetByCopy(mLeft, mTop), bounds(Bounds());
+	if (all.IsValid() && !bounds.Contains(shown))
+		ScrollTo(all.left - 40, all.top - 60);
 	return true;
 }
 
