@@ -56,6 +56,7 @@
 #include "PDFWindow.h"
 #include "Application.h"
 #include "DeepLink.h"
+#include "SenStripeDialog.h"
 #include "WebAnnotation.h"
 #include "ResourceLoader.h"
 #include "PasswordWindow.h"
@@ -497,84 +498,11 @@ void BepdfApplication::ReadyToRun()
 }
 
 ///////////////////////////////////////////////////////////
-// grey stripe with the app icon centered on its right border, with its center
-// at a third of the height; the view reserves the room for the half of the icon sticking out
-class AboutStripeView : public BView {
-public:
-	AboutStripeView(BBitmap *icon)
-		: BView("stripe", B_WILL_DRAW), mIcon(icon)
-	{
-		float spacing = be_control_look->DefaultLabelSpacing();
-		float half = (mIcon ? (mIcon->Bounds().Width() + 1) / 2 : 0);
-		mStripeWidth = floorf(half + 2 * spacing);
-		float width = mStripeWidth + half;
-		SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
-		SetExplicitMinSize(BSize(width, B_SIZE_UNSET));
-		SetExplicitMaxSize(BSize(width, B_SIZE_UNSET));
-	}
-
-	~AboutStripeView() { delete mIcon; }
-
-	void Draw(BRect updateRect)
-	{
-		BRect stripe = Bounds();
-		stripe.right = mStripeWidth - 1;
-		SetHighColor(tint_color(ViewColor(), B_DARKEN_1_TINT));
-		FillRect(stripe);
-		if (mIcon == NULL)
-			return;
-		BRect b = Bounds(), i = mIcon->Bounds();
-		SetDrawingMode(B_OP_ALPHA);
-		SetBlendingMode(B_PIXEL_ALPHA, B_ALPHA_OVERLAY);
-		DrawBitmap(mIcon, BPoint(floorf(mStripeWidth - (i.Width() + 1) / 2),
-			floorf(b.Height() / 3 - (i.Height() + 1) / 2)));
-	}
-
-private:
-	BBitmap *mIcon;
-	float mStripeWidth;
-};
-
-///////////////////////////////////////////////////////////
-// the logo, scaled to the room it has (it is a picture with a white background, shown as a card)
-class AboutLogoView : public BView {
-public:
-	AboutLogoView(BBitmap *logo, float height)
-		: BView("logo", B_WILL_DRAW), mLogo(logo)
-	{
-		float width = height;
-		if (mLogo != NULL && mLogo->Bounds().Height() > 0)
-			width = floorf(height * (mLogo->Bounds().Width() + 1) / (mLogo->Bounds().Height() + 1));
-		SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
-		SetExplicitMinSize(BSize(width, height));
-		SetExplicitMaxSize(BSize(width, height));
-		SetExplicitPreferredSize(BSize(width, height));
-	}
-
-	~AboutLogoView() { delete mLogo; }
-
-	void Draw(BRect)
-	{
-		if (mLogo == NULL)
-			return;
-		BRect b = Bounds();
-		SetDrawingMode(B_OP_COPY);
-		DrawBitmap(mLogo, mLogo->Bounds(), b, B_FILTER_BITMAP_BILINEAR);
-		SetHighColor(tint_color(ViewColor(), B_DARKEN_2_TINT));
-		StrokeRect(b);
-	}
-
-private:
-	BBitmap *mLogo;
-};
-
+// the About window: the dialog of SEN (lib/SenStripeDialog.h) with the logo on the stripe, one at a time
 static BMessenger sAboutWindow;
-static const char *kTitleFamily = "Noto Emoji";
-static const char *kTitleStyle = "Bold";
 
 void BepdfApplication::AboutRequested()
 {
-	// only one About window at a time
 	BLooper *looper = NULL;
 	if (sAboutWindow.IsValid() && sAboutWindow.Target(&looper) != NULL && looper != NULL
 		&& looper->Lock()) {
@@ -586,102 +514,25 @@ void BepdfApplication::AboutRequested()
 	}
 
 	BString version;
-	BString str("Toji™\n\n");
-	str += B_TRANSLATE("a universal document reader based on BePDF, extended for SEN");
-	str += "\n";
-	str += B_TRANSLATE("Version");
-	str += " ";
-	str += GetVersion(version);
-	str += "\n";
-	str += tojiCopyright;
-	str += "\n";
+	GetVersion(version);
 
-	str += bePDFCopyright;
-	str += "\n";
-
-	str += BString().SetToFormat(B_TRANSLATE_COMMENT("Toji renders with MuPDF %s, %s.", "MuPDF version, copyright"),
+	BString copyright(tojiCopyright);
+	copyright += bePDFCopyright;
+	copyright += BString().SetToFormat(B_TRANSLATE_COMMENT("Toji renders with MuPDF %s, %s.", "MuPDF version, copyright"),
 		FZ_VERSION, "© Artifex Software, Inc.");
-
-	str += "\n\n";
-	str += B_TRANSLATE("Toji™, SEN™ and SEN Labs™ are names of SEN Labs e.U.");
-	str += licenseCopyright;
-
-	float spacing = be_control_look->DefaultLabelSpacing();
-	float textWidth = be_plain_font->StringWidth("M") * 42;
-
-	BTextView *v = new BTextView(BRect(0, 0, textWidth, 100), "text", BRect(0, 0, textWidth, 100),
-		B_FOLLOW_NONE, B_WILL_DRAW);
-	v->SetViewUIColor(B_PANEL_BACKGROUND_COLOR);
-	v->SetWordWrap(true);
-	v->MakeEditable(false);
-	v->MakeSelectable(false);
-	v->SetStylable(true);
-	v->SetText(str.String());
-
-	rgb_color red = {255, 0, 51, 255};
-	rgb_color blue = {0, 102, 255, 255};
-	char *text = (char*)v->Text();
-	char *s = text;
-	// set all Be in BePDF in blue and red
-	while ((s = strstr(s, "BePDF")) != NULL) {
-		int32 i = s - text;
-		v->SetFontAndColor(i, i+1, NULL, 0, &blue);
-		v->SetFontAndColor(i+1, i+2, NULL, 0, &red);
-		s += 2;
-	}
-	// first text line: the name, large and bold, set slightly apart from the rest
-	s = strchr(text, '\n');
-	int32 titleEnd = s - text + 1;
-	BFont titleFont(be_plain_font);
-	titleFont.SetFamilyAndStyle(kTitleFamily, kTitleStyle);
-	titleFont.SetSize(be_plain_font->Size() * 2);
-	v->SetFontAndColor(0, titleEnd, &titleFont, B_FONT_ALL);
-	// the trademark sign is the Unicode character of the ordinary font (the emoji font has a picture of "TM" for it)
-	BFont markFont(be_bold_font);
-	markFont.SetSize(be_plain_font->Size() * 2);
-	const char* mark = strstr(text, "\xE2\x84\xA2");
-	if (mark != NULL && mark - text < titleEnd)
-		v->SetFontAndColor(mark - text, mark - text + 3, &markFont, B_FONT_ALL);
-	// the empty line after it is just a small gap
-	BFont gapFont(be_plain_font);
-	gapFont.SetSize(be_plain_font->Size() * 0.6);
-	v->SetFontAndColor(titleEnd, titleEnd + 1, &gapFont, B_FONT_ALL);
-
-	float textHeight = v->TextHeight(0, v->CountLines() - 1);
-	v->SetExplicitMinSize(BSize(textWidth, textHeight));
-	v->SetExplicitMaxSize(BSize(textWidth, textHeight));
+	copyright += "\n\n";
+	copyright += B_TRANSLATE("Toji™, SEN™ and SEN Labs™ are names of SEN Labs e.U.");
+	copyright += licenseCopyright;
 
 	// the logo is a file next to the program (docs/toji-logo.png, in the package); without it the window has none
 	BPath logoPath(mAppPath);
 	logoPath.Append("docs/toji-logo.png");
-	BBitmap *logo = BTranslationUtils::GetBitmap(logoPath.Path());
 
-	BWindow *about = new BWindow(BRect(0, 0, 100, 100), B_TRANSLATE("About Toji"),
-		B_TITLED_WINDOW_LOOK, B_NORMAL_WINDOW_FEEL,
-		B_NOT_ZOOMABLE | B_NOT_RESIZABLE | B_ASYNCHRONOUS_CONTROLS | B_AUTO_UPDATE_SIZE_LIMITS
-			| B_CLOSE_ON_ESCAPE);
-	BButton *ok = new BButton("ok", B_TRANSLATE("OK"), new BMessage(B_QUIT_REQUESTED));
-	ok->MakeDefault(true);
-
-	BLayoutBuilder::Group<>(about, B_HORIZONTAL, 0)
-		.Add(new AboutStripeView(NULL))
-		.AddGroup(B_VERTICAL, spacing)
-			.SetInsets(spacing * 2)
-			.AddGroup(B_HORIZONTAL)
-				.AddGlue()
-				.Add(new AboutLogoView(logo, 200))
-				.AddGlue()
-			.End()
-			.Add(v)
-			.AddGroup(B_HORIZONTAL)
-				.AddGlue()
-				.Add(ok)
-			.End()
-		.End();
-
+	sen::AboutDialog* about = new sen::AboutDialog("Toji™", version.String(),
+		B_TRANSLATE("a universal document reader based on BePDF, extended for SEN"), copyright.String(),
+		sen::LoadDialogImage(logoPath.Path(), 128), false, B_TRANSLATE("About Toji"), B_TRANSLATE("Version"), B_TRANSLATE("OK"));
 	sAboutWindow = BMessenger(about);
-	about->CenterOnScreen();
-	about->Show();
+	about->ShowCentered();
 }
 
 /*

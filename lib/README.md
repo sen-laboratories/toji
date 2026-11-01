@@ -12,6 +12,7 @@ MuPDF, so that SEN (enrichment plugins, navigators, ...) and other programs can 
 | `EpubCfi` | EPUB Canonical Fragment Identifiers: make and resolve | libzip, libxml2 |
 | `ComicInfo` | `ComicInfo.xml` (ComicRack and the comic managers) | libxml2 |
 | `BbfInfo` | the index of a Bound Book Format (`.bbf`) file | Haiku API |
+| `SenStripeDialog.h` | the dialog with the stripe of Haiku's alerts (About, with the picture, frame, shadow and the full-size view); a copy of the header of [sento](https://github.com/sen-laboratories/sento) | Haiku API |
 
 ## The rule
 
