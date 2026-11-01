@@ -44,4 +44,4 @@ It uses the fragment identifiers that exist for this, so the places mean the sam
   in code, `lib/DeepLink.h` (MIT) makes and reads the links.
 - **As a message:** a `B_REFS_RECEIVED` message with the file in `refs` and an `oa:hasTarget` (a message with `oa:hasSelector` entries as above)
   goes to the place. With `oa:motivatedBy` (for example `oa:highlighting`) the words of a quote, or the region of a place, are marked for three
-  seconds as a hint to the reader: it is no annotation, the document is not changed, and nothing asks to be saved at quit.
+  seconds (counted from the moment that the page is shown, however long the document takes to open) as a hint to the reader: it is no annotation, the document is not changed, and nothing asks to be saved at quit.

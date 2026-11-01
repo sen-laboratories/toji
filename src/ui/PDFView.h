@@ -154,9 +154,11 @@ private:
 	fz_rect         mTargetRegion;
 	std::vector<fz_quad> mTargetQuads;	// or the words of a quote (a highlight that is not an annotation)
 	BMessageRunner* mTargetRunner;
+	bool            mTargetCounting;	// the 3 seconds of the mark run: they start when the page that has it is drawn, not before
 	void            DrawTargetRegion();
 	void            ClearTargetRegion();
 	void            FlashTarget();
+	void            StartTargetCountdown(const PageSlot* slot);
 
 	// A book is laid out again for another text size in a thread of its own, which can take a while. The window
 	// stays as it is, and tells that it is busy if it takes longer than a moment.

@@ -299,6 +299,7 @@ PDFView::PDFView (entry_ref* ref, FileAttributes *fileAttributes,
 	mBusyRunner = NULL;
 	mFitWidthPending = false;
 	mTargetPage = 0;
+	mTargetCounting = false;
 	mTargetRegion = fz_empty_rect;
 	mTargetRunner = NULL;
 	mBusyWindow = NULL;
@@ -886,6 +887,7 @@ PDFView::ClearTargetRegion()
 {
 	delete mTargetRunner;
 	mTargetRunner = NULL;
+	mTargetCounting = false;
 	mTargetQuads.clear();
 	if (mTargetPage != 0) {
 		mTargetPage = 0;
@@ -894,14 +896,31 @@ PDFView::ClearTargetRegion()
 }
 
 
-// the mark of a target stays for 3 seconds
+// the mark of a target stays for 3 seconds, counted from the moment that the page with it is shown: a document that takes a while to open, or a page that is
+// rendered after the view was scrolled to the place, would otherwise use them up before anything is seen. Until then only a long time is the limit, so that a
+// page that never comes does not keep the mark for ever.
 void
 PDFView::FlashTarget()
 {
 	delete mTargetRunner;
 	BMessage done(TARGET_DONE_MSG);
-	mTargetRunner = new BMessageRunner(BMessenger(this), &done, 3000000, 1);
+	mTargetCounting = false;
+	mTargetRunner = new BMessageRunner(BMessenger(this), &done, 30000000, 1);
 	Invalidate();
+}
+
+
+// called when the page with the mark has been drawn: once it is rendered, the 3 seconds start
+void
+PDFView::StartTargetCountdown(const PageSlot* slot)
+{
+	if (mTargetCounting || mTargetRunner == NULL || slot->rendering || slot->page->GetBitmap() == NULL)
+		return;
+
+	mTargetCounting = true;
+	delete mTargetRunner;
+	BMessage done(TARGET_DONE_MSG);
+	mTargetRunner = new BMessageRunner(BMessenger(this), &done, 3000000, 1);
 }
 
 
@@ -1056,8 +1075,10 @@ PDFView::Draw(BRect updateRect)
 			DrawPage(updateRect);
 			DrawFindHits(updateRect);
 			DrawMarginNotes(updateRect);
-			if (slot->number == mTargetPage)
+			if (slot->number == mTargetPage) {
 				DrawTargetRegion();
+				StartTargetCountdown(slot);
+			}
 			if (slot->number == mInteractionPage) {
 				DrawSelection(updateRect);
 				DrawToolPreview();
