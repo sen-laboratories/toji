@@ -23,6 +23,8 @@ In the VM (started by `run.sh`; they share `common.sh`):
 | `shots.sh file[:page]...` | a screenshot per document, window at the top left |
 | `pageturn.sh file [page]` | frames of the fancy page turn at fixed progress (single and double-sided flow) |
 | `prefs.sh file [page]` | the preferences window |
+| `target.sh file word` | a deep link to a quote with a highlight: screenshots while marked and after |
+| `quote.sh file "page\|quote"...` | quotes as an outline gives them ("2 Related Work" for the heading "2.  Related Work"): each must be marked on its page, in the visible part of the view (`TSTX targetstate`); `!page\|quote` must not be found; "N quotes, M failed" |
 
 Rules the scripts follow (see the `haiku-vm-workflow` skill): the screen blanker loop ends with the script, a wait is a poll on a fresh `done` file (no fixed
 sleeps as a measurement), the user's settings file is moved aside and restored, the app is stopped by its team id (`quit` would wait for a dialog).

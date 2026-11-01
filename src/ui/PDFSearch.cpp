@@ -28,6 +28,11 @@
 #include <locale/Catalog.h>
 
 // BePDF
+#include <cctype>
+#include <cmath>
+#include <string>
+#include <vector>
+
 #include "CachedPage.h"
 #include "PDFView.h"
 #include "Thread.h"
@@ -199,6 +204,55 @@ FindThread::Run() {
 	return 0;
 }
 
+// The words of a quote that a program took from the outline of a document ("2 Related Work") are not always those of the page ("2.  Related Work"): the
+// numbering of a heading has a point there, or none, and a gap. These are the other ways to look for them, the likelier first: the numbering with a point,
+// then the title alone.
+static void
+QuoteVariants(const char* quote, std::vector<std::string>* variants, std::string* title)
+{
+	// blanks in a row are one
+	std::string words;
+	bool blank = true;
+	for (const char* c = quote; *c != '\0'; c++) {
+		if (isspace((unsigned char)*c)) {
+			blank = true;
+			continue;
+		}
+		if (blank && !words.empty())
+			words += ' ';
+		blank = false;
+		words += *c;
+	}
+
+	// the numbering at the start: 2, 2., 3.1, A, A.
+	size_t end = 0;
+	if (end < words.size() && isdigit((unsigned char)words[end])) {
+		while (end < words.size() && (isdigit((unsigned char)words[end])
+				|| (words[end] == '.' && end + 1 < words.size() && isdigit((unsigned char)words[end + 1]))))
+			end++;
+	} else if (end < words.size() && isupper((unsigned char)words[end]) && end + 1 < words.size()
+			&& (words[end + 1] == ' ' || words[end + 1] == '.')) {
+		end = 1;
+	}
+	if (end == 0)
+		return;
+
+	std::string number = words.substr(0, end);
+	size_t rest = end;
+	if (rest < words.size() && words[rest] == '.')
+		rest++;
+	if (rest >= words.size() || words[rest] != ' ')
+		return;
+	rest++;
+	*title = words.substr(rest);
+	if (title->size() < 4) {
+		title->clear();
+		return;
+	}
+	variants->push_back(number + ". " + *title);
+	variants->push_back(*title);
+}
+
 ///////////////////////////////////////////////////////////
 // Shows a passage that was quoted by another application: looks for the text from the page on (the given page
 // is where it should be, it is not trusted) and makes it visible: selected, or with mark (the caller asked for a
@@ -223,6 +277,34 @@ bool PDFView::ShowQuote(const char* quote, int page, bool mark) {
 			hit = hits[0];
 		}
 	}
+	if (!found && page >= 1 && page <= pages) {
+		// not as it was quoted: as a heading of the page that was named (only there: the title alone is found everywhere)
+		std::vector<std::string> variants;
+		std::string title;
+		QuoteVariants(quote, &variants, &title);
+		for (const std::string& variant : variants) {
+			std::vector<FindHit> hits;
+			if (!FindOnPage(mDoc, page, variant.c_str(), true, &hits) || hits.empty())
+				continue;
+			// the title alone may be in the text before the heading: the heading is set larger than the text
+			size_t best = 0;
+			if (variant == title) {
+				float bestHeight = 0;
+				for (size_t i = 0; i < hits.size(); i++) {
+					const fz_quad& q = hits[i].quads[0];
+					float height = fabsf(q.ll.y - q.ul.y);
+					if (height > bestHeight + 0.5f) {
+						bestHeight = height;
+						best = i;
+					}
+				}
+			}
+			found = true;
+			foundPage = page;
+			hit = hits[best];
+			break;
+		}
+	}
 	if (!found)
 		return false;
 
@@ -242,14 +324,17 @@ bool PDFView::ShowQuote(const char* quote, int page, bool mark) {
 	mTargetQuads = hit.quads;
 	FlashTarget();
 	// and into view
+	// (a rectangle that is made empty would put the origin into the union)
 	BRect all;
 	for (size_t i = 0; i < hit.quads.size(); i++) {
 		BPoint a = mPage->PageToDev(hit.quads[i].ul), b = mPage->PageToDev(hit.quads[i].lr);
-		all = all | BRect(fminf(a.x, b.x), fminf(a.y, b.y), fmaxf(a.x, b.x), fmaxf(a.y, b.y));
+		BRect each(fminf(a.x, b.x), fminf(a.y, b.y), fmaxf(a.x, b.x), fmaxf(a.y, b.y));
+		all = i == 0 ? each : (all | each);
 	}
 	BRect shown = all.OffsetByCopy(mLeft, mTop), bounds(Bounds());
+	// (the scroll that is remembered: the layout that follows a change of page puts the view back to where it was kept)
 	if (all.IsValid() && !bounds.Contains(shown))
-		ScrollTo(all.left - 40, all.top - 60);
+		ScrollTo(BPoint(shown.left - 40, shown.top - 60));
 	return true;
 }
 

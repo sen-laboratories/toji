@@ -2279,6 +2279,20 @@ PDFWindow::MessageReceived(BMessage* message)
 					WebAnnotation::MakeFragmentSelector(&selector, WebAnnotation::kConformsToEpubCfi, cfi.String());
 					target.AddMessage("oa:hasSelector", &selector);
 				}
+				BString textFile;
+				if (message->FindString("textfile", &textFile) == B_OK) {
+					// the words with blanks (hey cuts its arguments at the spaces)
+					FILE* in = fopen(textFile.String(), "r");
+					if (in != NULL) {
+						char buffer[512];
+						size_t got = fread(buffer, 1, sizeof(buffer) - 1, in);
+						while (got > 0 && (buffer[got - 1] == '\n' || buffer[got - 1] == '\r'))
+							got--;
+						buffer[got] = '\0';
+						text = buffer;
+						fclose(in);
+					}
+				}
 				BString svg, region;
 				message->FindString("svg", &svg);
 				message->FindString("xywh", &region);

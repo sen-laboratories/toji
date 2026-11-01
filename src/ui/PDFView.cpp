@@ -4946,7 +4946,7 @@ PDFView::ShowTarget(const BMessage& target, bool mark)
 		BPoint corner = mPage->PageToDev(fz_make_point(where.region.x0, where.region.y0));
 		BRect shown(corner.x + mLeft, corner.y + mTop, corner.x + mLeft + 10, corner.y + mTop + 10), bounds(Bounds());
 		if (!bounds.Contains(shown))
-			ScrollTo(corner.x - 40, corner.y - 60);
+			ScrollTo(BPoint(shown.left - 40, shown.top - 60));
 	}
 	return true;
 }
@@ -5256,7 +5256,18 @@ PDFView::TestCommand(BMessage* message)
 			ActivateSlot(slot);
 	}
 
-	if (cmd == "select" || cmd == "area") {
+	if (cmd == "targetstate") {
+		// the mark of a deep link as it is now: the page, the words that are marked, and whether they are in the visible part of the view
+		bool visible = false;
+		for (size_t i = 0; i < mTargetQuads.size() && mPage != NULL; i++) {
+			BPoint a = mPage->PageToDev(mTargetQuads[i].ul), b = mPage->PageToDev(mTargetQuads[i].lr);
+			BRect quad(fminf(a.x, b.x), fminf(a.y, b.y), fmaxf(a.x, b.x), fmaxf(a.y, b.y));
+			if (Bounds().Intersects(quad.OffsetByCopy(mLeft, mTop)))
+				visible = true;
+		}
+		TestLog("targetstate: page %d, %d quads, visible %d, counting %d", (int)mTargetPage, (int)mTargetQuads.size(), visible ? 1 : 0,
+			mTargetCounting ? 1 : 0);
+	} else if (cmd == "select" || cmd == "area") {
 		// as the secondary mouse button does it
 		SetAction(SELECT_ACTION);
 		mSelected = DO_SELECTION;
