@@ -9,7 +9,7 @@ resource app_version {
 	middle = 1,
 	minor  = 1,
 
-	variety = B_APPV_DEVELOPMENT,
+	variety = B_APPV_FINAL,
 	internal = 0,
 
 	short_info = "Document reader",
