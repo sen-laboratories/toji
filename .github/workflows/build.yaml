@@ -76,7 +76,7 @@ jobs:
 
       - name: Build and package
         shell: cpa.sh {0}
-        run: ./build.sh && make -C src bindcatalogs && ./package.sh
+        run: ./build.sh && ./package.sh
 
       # the package is back in the workspace now
       - uses: actions/upload-artifact@v7

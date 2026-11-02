@@ -15,6 +15,10 @@ grep -q 'libmupdf1.28.so' $APP || {
 	exit 1
 }
 
+# The translations are bound into the program's resources (not a build step of make): a binary without them is not translated. Binding again
+# replaces what is there, so a build that did it already (CI) is not harmed.
+make -C src bindcatalogs >/dev/null || { echo "binding the catalogs failed" >&2; exit 1; }
+
 # version from the app_version resource, a development build becomes a pre-release, a beta is 1.0.0~beta1
 major=$(sed -n 's/^[[:space:]]*major[[:space:]]*=[[:space:]]*\([0-9]*\).*/\1/p' $RDEF | head -n1)
 middle=$(sed -n 's/^[[:space:]]*middle[[:space:]]*=[[:space:]]*\([0-9]*\).*/\1/p' $RDEF | head -n1)
